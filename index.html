@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wardley Map Builder</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3144;
+    --text: #e4e6f0;
+    --text-dim: #8b8fa3;
+    --accent: #6c8cff;
+    --accent-hover: #8da6ff;
+    --accent-dim: rgba(108,140,255,0.15);
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --genesis: #c084fc;
+    --custom: #60a5fa;
+    --product: #34d399;
+    --commodity: #fbbf24;
+    --radius: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .header h1 span { color: var(--accent); }
+
+  /* Progress bar */
+  .progress-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .progress-step {
+    width: 40px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: background 0.3s;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-step.active { background: var(--accent); }
+  .progress-step.completed { background: var(--green); }
+  .progress-step:hover::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+  }
+
+  /* Layout */
+  .app {
+    display: flex;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    flex-shrink: 0;
+  }
+  .sidebar-section { margin-bottom: 24px; }
+  .sidebar-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .step-nav {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .step-nav li {
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+  }
+  .step-nav li:hover { background: var(--surface2); }
+  .step-nav li.active { background: var(--accent-dim); color: var(--accent); }
+  .step-nav li.completed { color: var(--green); }
+  .step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .step-nav li.active .step-num { border-color: var(--accent); background: var(--accent-dim); }
+  .step-nav li.completed .step-num { border-color: var(--green); background: rgba(74,222,128,0.15); }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    padding: 32px 48px;
+    max-width: 960px;
+    overflow-y: auto;
+  }
+  .step-content { display: none; }
+  .step-content.active { display: block; }
+  .step-header {
+    margin-bottom: 32px;
+  }
+  .step-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .step-header p {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 640px;
+  }
+
+  /* Form elements */
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .form-group { margin-bottom: 20px; }
+  .form-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--border); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(248,113,113,0.15); }
+
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .card-header h4 { font-size: 15px; font-weight: 600; }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tag-genesis { background: rgba(192,132,252,0.2); color: var(--genesis); }
+  .tag-custom { background: rgba(96,165,250,0.2); color: var(--custom); }
+  .tag-product { background: rgba(52,211,153,0.2); color: var(--product); }
+  .tag-commodity { background: rgba(251,191,36,0.2); color: var(--commodity); }
+
+  /* Component list */
+  .component-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .component-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .component-item .name { flex: 1; font-weight: 500; }
+  .component-item .evolution {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Cheat sheet */
+  .cheat-sheet {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .cheat-col {
+    padding: 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .cheat-col h5 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .cheat-col ul {
+    list-style: none;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .cheat-col ul li { margin-bottom: 4px; }
+  .cheat-genesis { border-color: var(--genesis); }
+  .cheat-genesis h5 { color: var(--genesis); }
+  .cheat-custom { border-color: var(--custom); }
+  .cheat-custom h5 { color: var(--custom); }
+  .cheat-product { border-color: var(--product); }
+  .cheat-product h5 { color: var(--product); }
+  .cheat-commodity { border-color: var(--commodity); }
+  .cheat-commodity h5 { color: var(--commodity); }
+
+  /* Doctrine checklist */
+  .doctrine-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .doctrine-item {
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .doctrine-item:hover { border-color: var(--accent); }
+  .doctrine-item.selected { border-color: var(--green); background: rgba(74,222,128,0.05); }
+  .doctrine-item h5 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .doctrine-item p { font-size: 12px; color: var(--text-dim); }
+  .doctrine-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+  .doctrine-item.selected .doctrine-check {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--bg);
+  }
+
+  /* Doctrine rating */
+  .doctrine-rating {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .rating-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .rating-dot:hover { border-color: var(--accent); }
+  .rating-dot.active-red { border-color: var(--red); background: rgba(248,113,113,0.2); color: var(--red); }
+  .rating-dot.active-amber { border-color: var(--amber); background: rgba(251,191,36,0.2); color: var(--amber); }
+  .rating-dot.active-green { border-color: var(--green); background: rgba(74,222,128,0.2); color: var(--green); }
+
+  /* Map canvas */
+  .map-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  .map-canvas {
+    width: 100%;
+    height: 600px;
+    cursor: default;
+  }
+
+  /* Climatic patterns */
+  .pattern-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .pattern-card h5 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .pattern-card p { font-size: 13px; color: var(--text-dim); }
+  .pattern-toggle {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+  .pattern-toggle .btn { padding: 4px 12px; font-size: 12px; }
+  .pattern-toggle .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Inline add form */
+  .inline-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .inline-add input { flex: 1; }
+
+  /* Dependency selector */
+  .dep-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .dep-chip {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dep-chip.selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* Evolution slider */
+  .evolution-slider {
+    position: relative;
+    margin: 20px 0 8px;
+  }
+  .evolution-track {
+    height: 8px;
+    background: linear-gradient(90deg, var(--genesis), var(--custom), var(--product), var(--commodity));
+    border-radius: 4px;
+    position: relative;
+  }
+  .evolution-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+  .evolution-labels span { font-size: 11px; color: var(--text-dim); }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    background: transparent;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--text);
+    border: 3px solid var(--accent);
+    cursor: pointer;
+    margin-top: -6px;
+  }
+
+  /* Visibility slider */
+  .visibility-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .visibility-control label { margin-bottom: 0; font-size: 12px; color: var(--text-dim); }
+  .visibility-control input[type="range"] {
+    position: static;
+    width: 120px;
+  }
+
+  /* Info box */
+  .info-box {
+    background: var(--accent-dim);
+    border: 1px solid rgba(108,140,255,0.3);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Export panel */
+  .export-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .export-card {
+    padding: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .export-card:hover { border-color: var(--accent); }
+  .export-card .icon { font-size: 28px; margin-bottom: 8px; }
+  .export-card h5 { font-size: 14px; margin-bottom: 4px; }
+  .export-card p { font-size: 12px; color: var(--text-dim); }
+
+  /* Annotations on map */
+  .annotation-input {
+    position: absolute;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 8px;
+    z-index: 50;
+    display: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 20px; }
+    .cheat-sheet { grid-template-columns: 1fr 1fr; }
+    .doctrine-grid { grid-template-columns: 1fr; }
+    .export-options { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>Wardley</span> Map Builder</h1>
+  <div class="progress-bar" id="progressBar"></div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-sm" onclick="exportJSON()" title="Save project">Save</button>
+    <button class="btn btn-sm" onclick="importJSON()" title="Load project">Load</button>
+  </div>
+</div>
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <h3>Steps</h3>
+      <ul class="step-nav" id="stepNav"></ul>
+    </div>
+    <div class="sidebar-section">
+      <h3>Components</h3>
+      <div id="sidebarComponents" class="component-list" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+  </nav>
+
+  <main class="main" id="mainContent">
+    <!-- STEP 1: Purpose & Users -->
+    <div class="step-content" id="step-0">
+      <div class="step-header">
+        <h2>1. Define Purpose & Users</h2>
+        <p>Every Wardley Map starts with understanding <strong>why</strong> you exist and <strong>who</strong> you serve. As Sun Tzu described: purpose is your moral imperative, the reason others follow you.</p>
+      </div>
+      <div class="info-box">
+        Start by defining the scope of what you're mapping. Are you mapping a tea shop, an IT system, an entire company, or a specific product? Then identify the users whose needs anchor the map.
+      </div>
+      <div class="form-group">
+        <label>What are you mapping?</label>
+        <input type="text" id="mapTitle" placeholder="e.g., Online Photo Service, Coffee Shop, SaaS Platform">
+        <div class="form-hint">Give your map a descriptive name that defines its scope.</div>
+      </div>
+      <div class="form-group">
+        <label>Purpose / Why do you exist?</label>
+        <textarea id="mapPurpose" placeholder="e.g., To provide the most convenient way for people to share their photos with friends and family online"></textarea>
+        <div class="form-hint">This is your moral imperative. Why should others follow or use you?</div>
+      </div>
+      <div class="form-group">
+        <label>Who are your users?</label>
+        <div id="usersList"></div>
+        <div class="inline-add">
+          <input type="text" id="newUser" placeholder="e.g., Public customers, Enterprise clients, Regulators">
+          <button class="btn btn-sm btn-primary" onclick="addUser()">Add User</button>
+        </div>
+        <div class="form-hint">Identify all relevant user types: customers, shareholders, regulators, employees, etc.</div>
+      </div>
+    </div>
+
+    <!-- STEP 2: User Needs -->
+    <div class="step-content" id="step-1">
+      <div class="step-header">
+        <h2>2. Identify User Needs</h2>
+        <p>The user need is the <strong>anchor</strong> for the entire map. Focus on what users truly need, not what you think they want. Talk to them, examine their journey, and question every assumption.</p>
+      </div>
+      <div class="info-box">
+        Be careful of biases: in the uncharted domain users don't know what they need (you must gamble); in the transitional domain you should listen; in the industrialised domain be mindful of inertia from past success.
+      </div>
+      <div id="needsByUser"></div>
+    </div>
+
+    <!-- STEP 3: Value Chain -->
+    <div class="step-content" id="step-2">
+      <div class="step-header">
+        <h2>3. Build the Value Chain</h2>
+        <p>For each user need, ask: "What components do we need to deliver this?" Then for each component, ask the same question recursively until you reach commodities outside your scope.</p>
+      </div>
+      <div class="info-box">
+        Components can be activities (things we do), practices (how we do them), data, or knowledge. Write each component only once. Things near the top are more visible to the user and have more value to them.
+      </div>
+      <div id="valueChainBuilder"></div>
+      <div style="margin-top: 20px;">
+        <h4 style="margin-bottom: 12px;">Add Component</h4>
+        <div class="form-group">
+          <label>Component Name</label>
+          <input type="text" id="newComponentName" placeholder="e.g., Image Storage, Web Server, Database">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="newComponentType">
+            <option value="activity">Activity (what we do)</option>
+            <option value="practice">Practice (how we do it)</option>
+            <option value="data">Data</option>
+            <option value="knowledge">Knowledge</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Depends on (select parent components)</label>
+          <div class="dep-chips" id="parentChips"></div>
+          <div class="form-hint">Click components that this new component serves (provides value to).</div>
+        </div>
+        <button class="btn btn-primary" onclick="addComponent()">Add Component</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: Evolution -->
+    <div class="step-content" id="step-3">
+      <div class="step-header">
+        <h2>4. Position on Evolution Axis</h2>
+        <p>Every component is evolving from left (Genesis) to right (Commodity) driven by supply and demand competition. Use the cheat sheet to determine where each component sits.</p>
+      </div>
+      <div class="cheat-sheet">
+        <div class="cheat-col cheat-genesis">
+          <h5>I. Genesis</h5>
+          <ul>
+            <li>Unique, rare</li>
+            <li>Poorly understood</li>
+            <li>Uncertain</li>
+            <li>Rapidly changing</li>
+            <li>Differential value</li>
+            <li>No defined market</li>
+            <li>Experimentation</li>
+          </ul>
+        </div>
+        <div class="cheat-col cheat-custom">
+          <h5>II. Custom Built</h5>
+          <ul>
+            <li>Uncommon</li>
+            <li>Emerging understanding</li>
+            <li>Bespoke / tailored</li>
+            <li>Frequently changing</li>
+            <li>Competitive advantage</li>
+            <li>Early market</li>
+            <li>Learning & craft</li>
+          </ul>
+        </div>
+        <div class="cheat-col cheat-product">
+          <h5>III. Product (+rental)</h5>
+          <ul>
+            <li>Increasingly common</li>
+            <li>Well understood</li>
+            <li>Repeatable process</li>
+            <li>Slowly changing</li>
+            <li>Differentiation declining</li>
+            <li>Growing market</li>
+            <li>Refining & improving</li>
+          </ul>
+        </div>
+        <div class="cheat-col cheat-commodity">
+          <h5>IV. Commodity (+utility)</h5>
+          <ul>
+            <li>Ubiquitous</li>
+            <li>Well defined</li>
+            <li>Standardised</li>
+            <li>Stable / fixed</li>
+            <li>Cost of doing business</li>
+            <li>Mature market</li>
+            <li>Operational efficiency</li>
+          </ul>
+        </div>
+      </div>
+      <div id="evolutionCards"></div>
+    </div>
+
+    <!-- STEP 5: Doctrine Assessment -->
+    <div class="step-content" id="step-4">
+      <div class="step-header">
+        <h2>5. Assess Doctrine</h2>
+        <p>Doctrine consists of universal principles applicable to all industries regardless of landscape. Rate how well your organisation applies each principle using the traffic light system (Red / Amber / Green).</p>
+      </div>
+      <div class="tabs" id="doctrineTabs">
+        <div class="tab active" onclick="switchDoctrineTab('communication')">Communication</div>
+        <div class="tab" onclick="switchDoctrineTab('development')">Development</div>
+        <div class="tab" onclick="switchDoctrineTab('operation')">Operation</div>
+        <div class="tab" onclick="switchDoctrineTab('structure')">Structure</div>
+        <div class="tab" onclick="switchDoctrineTab('learning')">Learning</div>
+        <div class="tab" onclick="switchDoctrineTab('leading')">Leading</div>
+      </div>
+      <div id="doctrineContent"></div>
+    </div>
+
+    <!-- STEP 6: Climatic Patterns -->
+    <div class="step-content" id="step-5">
+      <div class="step-header">
+        <h2>6. Identify Climatic Patterns</h2>
+        <p>Climatic patterns are forces that change the map regardless of your actions. You cannot stop them, but you can anticipate and exploit them. Mark which patterns you observe affecting your landscape.</p>
+      </div>
+      <div id="climaticPatterns"></div>
+    </div>
+
+    <!-- STEP 7: Visualize Map -->
+    <div class="step-content" id="step-6">
+      <div class="step-header">
+        <h2>7. Your Wardley Map</h2>
+        <p>This is your landscape. Use it to communicate strategy, challenge assumptions, and anticipate change. The map is a living document that evolves as you learn.</p>
+      </div>
+      <div class="map-container">
+        <canvas class="map-canvas" id="wardleyCanvas"></canvas>
+      </div>
+      <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-sm" onclick="toggleMapAnnotations()">Toggle Annotations</button>
+        <button class="btn btn-sm" onclick="toggleMapMovement()">Show Evolution Direction</button>
+        <button class="btn btn-sm" onclick="toggleInertia()">Show Inertia</button>
+        <button class="btn btn-sm btn-primary" onclick="downloadMap()">Export as PNG</button>
+        <button class="btn btn-sm" onclick="downloadSVG()">Export as SVG</button>
+      </div>
+      <div class="export-options" style="margin-top: 24px;">
+        <div class="export-card" onclick="exportJSON()">
+          <div class="icon">{ }</div>
+          <h5>Save Project</h5>
+          <p>Download as JSON to continue later</p>
+        </div>
+        <div class="export-card" onclick="downloadMap()">
+          <div class="icon">&#x1f4f7;</div>
+          <h5>Export PNG</h5>
+          <p>High-resolution image for presentations</p>
+        </div>
+        <div class="export-card" onclick="downloadSVG()">
+          <div class="icon">&#x2b50;</div>
+          <h5>Export SVG</h5>
+          <p>Vector format for editing</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation buttons (shared) -->
+    <div class="btn-group" id="navButtons">
+      <button class="btn" id="prevBtn" onclick="prevStep()">Back</button>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextStep()">Continue</button>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadFile(event)">
+
+<script>
+// ============================
+// STATE
+// ============================
+const state = {
+  currentStep: 0,
+  totalSteps: 7,
+  title: '',
+  purpose: '',
+  users: [],
+  needs: {},       // userId -> [need strings]
+  components: [],  // {id, name, type, parents:[], evolution: 0-1, visibility: 0-1, x?, y?}
+  doctrine: {},    // doctrineId -> rating (0=none, 1=red, 2=amber, 3=green)
+  climaticPatterns: {}, // patternId -> boolean
+  showMovement: false,
+  showInertia: false,
+  showAnnotations: true,
+  dragging: null,
+};
+
+let nextId = 1;
+function genId() { return 'c' + (nextId++); }
+
+// ============================
+// STEPS CONFIG
+// ============================
+const steps = [
+  { label: 'Purpose & Users', short: 'Purpose' },
+  { label: 'User Needs', short: 'Needs' },
+  { label: 'Value Chain', short: 'Chain' },
+  { label: 'Evolution', short: 'Evolution' },
+  { label: 'Doctrine', short: 'Doctrine' },
+  { label: 'Climatic Patterns', short: 'Climate' },
+  { label: 'Wardley Map', short: 'Map' },
+];
+
+// ============================
+// DOCTRINE DATA
+// ============================
+const doctrineData = {
+  communication: [
+    { id: 'd1', name: 'Use a common language', desc: 'Use maps to create a shared understanding across marketing, IT, finance, and operations.' },
+    { id: 'd2', name: 'Challenge assumptions', desc: 'Encourage open challenge to any map. No place for ego when learning.' },
+    { id: 'd3', name: 'Be transparent', desc: 'Share maps openly to allow others to add wisdom and challenge your thinking.' },
+    { id: 'd4', name: 'Focus on user needs', desc: 'Anchor everything to what users actually need, not what you want to sell.' },
+  ],
+  development: [
+    { id: 'd5', name: 'Use appropriate methods', desc: 'No one size fits all. Use agile for genesis, lean for custom, six sigma for commodity.' },
+    { id: 'd6', name: 'Think FIRE', desc: 'Fast, Inexpensive, Restrained, Elegant. Break large systems into small components.' },
+    { id: 'd7', name: 'Be pragmatic', desc: "Don't re-invent the wheel. Use existing components where possible." },
+    { id: 'd8', name: 'Remove bias and duplication', desc: 'Use multiple maps to find where you duplicate effort or harbour biases.' },
+    { id: 'd9', name: 'Focus on outcome not contract', desc: 'Different contract types for different evolution stages.' },
+    { id: 'd10', name: 'Use standards where appropriate', desc: 'If commodity standards exist, use them. Avoid building custom toasters.' },
+  ],
+  operation: [
+    { id: 'd11', name: 'Optimise flow', desc: 'Find bottlenecks in information, risk, social and financial flows. Remove them.' },
+    { id: 'd12', name: 'Effectiveness over efficiency', desc: "Don't make the ineffective more efficient. Question why before optimising how." },
+    { id: 'd13', name: 'Manage inertia', desc: 'Anticipate resistance from past success, existing practices, and political capital.' },
+    { id: 'd14', name: 'Manage failure', desc: 'Design for failure. Distribute systems. Use chaos engines. Avoid death star projects.' },
+    { id: 'd15', name: 'Do better with less', desc: 'Bias towards continual improvement.' },
+  ],
+  structure: [
+    { id: 'd16', name: 'Think small (teams)', desc: 'Small autonomous teams with well-defined interfaces. Two-pizza teams.' },
+    { id: 'd17', name: 'Think aptitude and attitude', desc: 'Different people: Pioneers (genesis), Settlers (custom/product), Town Planners (commodity).' },
+    { id: 'd18', name: 'Design for constant evolution', desc: 'Use cell-based structures with a mechanism of theft: settlers steal from pioneers, town planners steal from settlers.' },
+    { id: 'd19', name: 'There is no one culture', desc: 'Multiple cultures are needed. Pioneers, settlers, and town planners each have different cultures.' },
+    { id: 'd20', name: 'Distribute power', desc: 'Put decision-making power closest to where the decision needs to be made.' },
+    { id: 'd21', name: 'Provide purpose, mastery, autonomy', desc: 'Give people clear purpose, enable them to build mastery, and grant autonomy.' },
+  ],
+  learning: [
+    { id: 'd22', name: 'Use a systematic mechanism of learning', desc: 'Collate maps, review patterns, learn climatic patterns, doctrine, and gameplay.' },
+    { id: 'd23', name: 'A bias towards action', desc: "Don't over-plan. Maps change. You learn by playing the game." },
+    { id: 'd24', name: 'A bias towards the new', desc: 'Be curious, experiment, take appropriate risks. Everything evolves.' },
+    { id: 'd25', name: 'Listen to your ecosystems', desc: 'Build sensing engines. Tend your ecosystems like a garden.' },
+  ],
+  leading: [
+    { id: 'd26', name: 'Be the owner', desc: "Don't outsource strategy. You play the game, you learn, you adapt." },
+    { id: 'd27', name: 'Strategy is iterative', desc: 'Adapt in fast cycles. No linear plans. Direction with constant learning.' },
+    { id: 'd28', name: 'Think big', desc: "Inspire others. Your purpose is not the narrow pass but defeating the army." },
+    { id: 'd29', name: 'Be humble', desc: "Listen to others. Avoid believing your own hype. Don't claim right to the market." },
+    { id: 'd30', name: 'Move fast', desc: 'An imperfect plan today beats a perfect plan tomorrow.' },
+    { id: 'd31', name: 'Exploit the landscape', desc: 'Use terrain to your advantage. Conscious choice not to is still strategy.' },
+    { id: 'd32', name: 'There is no core', desc: 'Everything is transient. What is core today was not in the past and won\'t be in the future.' },
+    { id: 'd33', name: 'Set exceptional standards', desc: "Don't settle for 'as good as' competitors." },
+    { id: 'd34', name: 'Commit to direction, adapt along path', desc: "Don't abandon direction at first hurdle. Find paths around obstacles." },
+    { id: 'd35', name: 'Focus on high situational awareness', desc: 'Strong correlation between awareness and performance. Look before you leap.' },
+  ]
+};
+
+// ============================
+// CLIMATIC PATTERNS DATA
+// ============================
+const climaticPatternsData = [
+  { id: 'cp1', name: 'Everything evolves', desc: 'All components move from genesis to commodity through supply and demand competition. Nothing is static.', category: 'components' },
+  { id: 'cp2', name: 'Characteristics change', desc: 'As components evolve, their characteristics change from uncertain/rare/changing to well-defined/common/stable.', category: 'components' },
+  { id: 'cp3', name: 'No one size fits all', desc: 'Different evolution stages require different methods (agile, lean, six sigma), different purchasing, different management.', category: 'components' },
+  { id: 'cp4', name: 'Efficiency enables innovation', desc: 'Commoditised components enable higher-order systems. Standard bricks enable complex buildings. Genesis begets evolution begets genesis.', category: 'components' },
+  { id: 'cp5', name: 'Higher order systems create new sources of worth', desc: 'As components become utility, they enable new things that become future sources of value.', category: 'financial' },
+  { id: 'cp6', name: 'No choice on evolution', desc: 'Red Queen effect: if competitors adopt evolved components, you must too or be left behind.', category: 'competitors' },
+  { id: 'cp7', name: 'Past success breeds inertia', desc: 'Previous success with existing models creates resistance to change. It is usually new entrants who initiate change.', category: 'inertia' },
+  { id: 'cp8', name: 'Capital flows to new areas of value', desc: 'As components become commodity, capital shifts to the new higher-order systems built upon them.', category: 'financial' },
+  { id: 'cp9', name: 'Co-evolution of practice', desc: 'As an activity evolves, the practices around it co-evolve. New practices emerge with new stages of evolution.', category: 'components' },
+  { id: 'cp10', name: 'There is a pace of change', desc: 'Evolution cannot be measured over time, but stages can be described. Speed of evolution is not constant.', category: 'speed' },
+];
+
+// ============================
+// INIT
+// ============================
+function init() {
+  renderProgressBar();
+  renderStepNav();
+  navigateTo(0);
+}
+
+// ============================
+// NAVIGATION
+// ============================
+function renderProgressBar() {
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = steps.map((s, i) =>
+    `<div class="progress-step ${i < state.currentStep ? 'completed' : ''} ${i === state.currentStep ? 'active' : ''}"
+          data-label="${s.short}" onclick="navigateTo(${i})"></div>`
+  ).join('');
+}
+
+function renderStepNav() {
+  const nav = document.getElementById('stepNav');
+  nav.innerHTML = steps.map((s, i) =>
+    `<li class="${i === state.currentStep ? 'active' : ''} ${i < state.currentStep ? 'completed' : ''}"
+         onclick="navigateTo(${i})">
+      <span class="step-num">${i < state.currentStep ? '&#10003;' : i + 1}</span>
+      ${s.label}
+    </li>`
+  ).join('');
+}
+
+function navigateTo(step) {
+  saveCurrentStepData();
+  state.currentStep = step;
+  document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+  const target = document.getElementById(`step-${step}`);
+  if (target) target.classList.add('active');
+  renderProgressBar();
+  renderStepNav();
+  renderSidebarComponents();
+  updateNavButtons();
+  renderCurrentStep();
+}
+
+function nextStep() {
+  saveCurrentStepData();
+  if (state.currentStep < state.totalSteps - 1) {
+    navigateTo(state.currentStep + 1);
+  }
+}
+
+function prevStep() {
+  if (state.currentStep > 0) {
+    navigateTo(state.currentStep - 1);
+  }
+}
+
+function updateNavButtons() {
+  document.getElementById('prevBtn').style.display = state.currentStep === 0 ? 'none' : '';
+  const nextBtn = document.getElementById('nextBtn');
+  if (state.currentStep === state.totalSteps - 1) {
+    nextBtn.style.display = 'none';
+  } else {
+    nextBtn.style.display = '';
+    nextBtn.textContent = state.currentStep === state.totalSteps - 2 ? 'Generate Map' : 'Continue';
+  }
+}
+
+function saveCurrentStepData() {
+  const step = state.currentStep;
+  if (step === 0) {
+    state.title = document.getElementById('mapTitle')?.value || '';
+    state.purpose = document.getElementById('mapPurpose')?.value || '';
+  }
+}
+
+// ============================
+// RENDER STEPS
+// ============================
+function renderCurrentStep() {
+  switch (state.currentStep) {
+    case 0: renderStep0(); break;
+    case 1: renderStep1(); break;
+    case 2: renderStep2(); break;
+    case 3: renderStep3(); break;
+    case 4: renderStep4(); break;
+    case 5: renderStep5(); break;
+    case 6: renderStep6(); break;
+  }
+}
+
+// Step 0: Purpose & Users
+function renderStep0() {
+  document.getElementById('mapTitle').value = state.title;
+  document.getElementById('mapPurpose').value = state.purpose;
+  renderUsersList();
+}
+
+function renderUsersList() {
+  const el = document.getElementById('usersList');
+  el.innerHTML = state.users.map((u, i) =>
+    `<div class="component-item" style="margin-bottom:6px;">
+      <span class="name">${u}</span>
+      <button class="btn btn-sm btn-danger" onclick="removeUser(${i})">Remove</button>
+    </div>`
+  ).join('');
+}
+
+function addUser() {
+  const input = document.getElementById('newUser');
+  const val = input.value.trim();
+  if (val && !state.users.includes(val)) {
+    state.users.push(val);
+    if (!state.needs[val]) state.needs[val] = [];
+    input.value = '';
+    renderUsersList();
+  }
+}
+
+function removeUser(i) {
+  const u = state.users[i];
+  delete state.needs[u];
+  state.users.splice(i, 1);
+  renderUsersList();
+}
+
+// Step 1: User Needs
+function renderStep1() {
+  const el = document.getElementById('needsByUser');
+  if (state.users.length === 0) {
+    el.innerHTML = '<div class="info-box">Go back to Step 1 and add at least one user type first.</div>';
+    return;
+  }
+  el.innerHTML = state.users.map(u => {
+    const needs = state.needs[u] || [];
+    return `<div class="card">
+      <div class="card-header"><h4>Needs of: ${u}</h4></div>
+      ${needs.map((n, i) => `
+        <div class="component-item" style="margin-bottom:4px;">
+          <span class="name">${n}</span>
+          <button class="btn btn-sm btn-danger" onclick="removeNeed('${u}',${i})">x</button>
+        </div>`).join('')}
+      <div class="inline-add">
+        <input type="text" id="need-${u}" placeholder="e.g., Share photos, Quick service, Reliable uptime">
+        <button class="btn btn-sm btn-primary" onclick="addNeed('${u}')">Add Need</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addNeed(user) {
+  const input = document.getElementById('need-' + user);
+  const val = input.value.trim();
+  if (val) {
+    if (!state.needs[user]) state.needs[user] = [];
+    state.needs[user].push(val);
+    input.value = '';
+    // Auto-create a top-level component for this need
+    const existing = state.components.find(c => c.name.toLowerCase() === val.toLowerCase());
+    if (!existing) {
+      // Offset each need slightly so they don't overlap on the map
+      const needCount = state.components.filter(c => c.isNeed).length;
+      const evoOffset = needCount * 0.08;
+      const visOffset = needCount * 0.06;
+      state.components.push({
+        id: genId(),
+        name: val,
+        type: 'activity',
+        parents: [],
+        evolution: Math.min(0.45, 0.15 + evoOffset),
+        visibility: Math.max(0.7, 0.95 - visOffset),
+        isNeed: true,
+        user: user
+      });
+    }
+    renderStep1();
+  }
+}
+
+function removeNeed(user, i) {
+  const need = state.needs[user][i];
+  state.needs[user].splice(i, 1);
+  // Remove associated component if it was auto-created
+  const ci = state.components.findIndex(c => c.name === need && c.isNeed);
+  if (ci >= 0) state.components.splice(ci, 1);
+  renderStep1();
+}
+
+// Step 2: Value Chain
+function renderStep2() {
+  const el = document.getElementById('valueChainBuilder');
+  if (state.components.length === 0) {
+    el.innerHTML = '<div class="info-box">User needs from Step 2 will appear here as top-level components. Add some needs first, then add sub-components below.</div>';
+  } else {
+    // Build tree view
+    el.innerHTML = '<h4 style="margin-bottom:12px;">Current Components</h4>' +
+      state.components.map(c => {
+        const evoLabel = c.evolution < 0.25 ? 'Genesis' : c.evolution < 0.5 ? 'Custom' : c.evolution < 0.75 ? 'Product' : 'Commodity';
+        const tagClass = c.evolution < 0.25 ? 'tag-genesis' : c.evolution < 0.5 ? 'tag-custom' : c.evolution < 0.75 ? 'tag-product' : 'tag-commodity';
+        const parents = c.parents.map(pid => {
+          const p = state.components.find(x => x.id === pid);
+          return p ? p.name : '';
+        }).filter(Boolean).join(', ');
+        return `<div class="component-item">
+          <span class="name">${c.name}</span>
+          <span class="tag ${tagClass}">${evoLabel}</span>
+          <span style="font-size:12px;color:var(--text-dim)">${parents ? 'serves: ' + parents : c.isNeed ? '(user need)' : ''}</span>
+          ${!c.isNeed ? `<button class="btn btn-sm btn-danger" onclick="removeComponent('${c.id}')">x</button>` : ''}
+        </div>`;
+      }).join('');
+  }
+  renderParentChips();
+}
+
+function renderParentChips() {
+  const el = document.getElementById('parentChips');
+  if (!el) return;
+  el.innerHTML = state.components.map(c =>
+    `<span class="dep-chip" data-id="${c.id}" onclick="toggleParentChip(this)">${c.name}</span>`
+  ).join('');
+}
+
+function toggleParentChip(el) {
+  el.classList.toggle('selected');
+}
+
+function addComponent() {
+  const name = document.getElementById('newComponentName').value.trim();
+  if (!name) return;
+  const type = document.getElementById('newComponentType').value;
+  const selectedParents = Array.from(document.querySelectorAll('#parentChips .dep-chip.selected'))
+    .map(el => el.dataset.id);
+
+  state.components.push({
+    id: genId(),
+    name: name,
+    type: type,
+    parents: selectedParents,
+    evolution: 0.5,
+    visibility: selectedParents.length > 0 ? Math.max(0.1, Math.min(...selectedParents.map(pid => {
+      const p = state.components.find(c => c.id === pid);
+      return p ? p.visibility - 0.15 : 0.5;
+    }))) : 0.5,
+    isNeed: false
+  });
+
+  document.getElementById('newComponentName').value = '';
+  document.querySelectorAll('#parentChips .dep-chip').forEach(el => el.classList.remove('selected'));
+  renderStep2();
+  renderSidebarComponents();
+}
+
+function removeComponent(id) {
+  // Also remove from parents of other components
+  state.components = state.components.filter(c => c.id !== id);
+  state.components.forEach(c => {
+    c.parents = c.parents.filter(p => p !== id);
+  });
+  renderStep2();
+  renderSidebarComponents();
+}
+
+// Step 3: Evolution
+function renderStep3() {
+  const el = document.getElementById('evolutionCards');
+  el.innerHTML = state.components.map(c => {
+    const evoLabel = c.evolution < 0.25 ? 'Genesis' : c.evolution < 0.5 ? 'Custom Built' : c.evolution < 0.75 ? 'Product' : 'Commodity';
+    const tagClass = c.evolution < 0.25 ? 'tag-genesis' : c.evolution < 0.5 ? 'tag-custom' : c.evolution < 0.75 ? 'tag-product' : 'tag-commodity';
+    return `<div class="card">
+      <div class="card-header">
+        <h4>${c.name}</h4>
+        <span class="tag ${tagClass}">${evoLabel}</span>
+      </div>
+      <div class="form-hint" style="margin-bottom:8px;">Ask: How ubiquitous is it? Do competitors use it? Is it available as a product/utility?</div>
+      <div class="evolution-slider">
+        <div class="evolution-track"></div>
+        <input type="range" min="0" max="100" value="${Math.round(c.evolution * 100)}"
+               oninput="updateEvolution('${c.id}', this.value)">
+      </div>
+      <div class="evolution-labels">
+        <span>Genesis</span><span>Custom</span><span>Product</span><span>Commodity</span>
+      </div>
+      <div class="visibility-control">
+        <label>Visibility to user:</label>
+        <input type="range" min="5" max="100" value="${Math.round(c.visibility * 100)}"
+               oninput="updateVisibility('${c.id}', this.value)">
+        <span style="font-size:12px;color:var(--text-dim)">${Math.round(c.visibility * 100)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateEvolution(id, val) {
+  const c = state.components.find(x => x.id === id);
+  if (c) c.evolution = val / 100;
+  // Update tag display
+  const card = event.target.closest('.card');
+  if (card) {
+    const tag = card.querySelector('.tag');
+    const evoLabel = val < 25 ? 'Genesis' : val < 50 ? 'Custom Built' : val < 75 ? 'Product' : 'Commodity';
+    const tagClass = val < 25 ? 'tag-genesis' : val < 50 ? 'tag-custom' : val < 75 ? 'tag-product' : 'tag-commodity';
+    tag.className = 'tag ' + tagClass;
+    tag.textContent = evoLabel;
+  }
+}
+
+function updateVisibility(id, val) {
+  const c = state.components.find(x => x.id === id);
+  if (c) c.visibility = val / 100;
+}
+
+// Step 4: Doctrine
+let currentDoctrineTab = 'communication';
+
+function switchDoctrineTab(tab) {
+  currentDoctrineTab = tab;
+  document.querySelectorAll('#doctrineTabs .tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderDoctrineContent();
+}
+
+function renderStep4() {
+  renderDoctrineContent();
+}
+
+function renderDoctrineContent() {
+  const items = doctrineData[currentDoctrineTab] || [];
+  const el = document.getElementById('doctrineContent');
+  el.innerHTML = `<div class="doctrine-grid">
+    ${items.map(d => {
+      const rating = state.doctrine[d.id] || 0;
+      return `<div class="doctrine-item">
+        <h5>${d.name}</h5>
+        <p>${d.desc}</p>
+        <div class="doctrine-rating">
+          <div class="rating-dot ${rating === 1 ? 'active-red' : ''}" onclick="setDoctrine('${d.id}', 1)" title="Not practiced">R</div>
+          <div class="rating-dot ${rating === 2 ? 'active-amber' : ''}" onclick="setDoctrine('${d.id}', 2)" title="Partially practiced">A</div>
+          <div class="rating-dot ${rating === 3 ? 'active-green' : ''}" onclick="setDoctrine('${d.id}', 3)" title="Well practiced">G</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function setDoctrine(id, rating) {
+  state.doctrine[id] = state.doctrine[id] === rating ? 0 : rating;
+  renderDoctrineContent();
+}
+
+// Step 5: Climatic Patterns
+function renderStep5() {
+  const el = document.getElementById('climaticPatterns');
+  el.innerHTML = climaticPatternsData.map(p => {
+    const active = state.climaticPatterns[p.id] || false;
+    return `<div class="pattern-card">
+      <h5>${p.name}</h5>
+      <p>${p.desc}</p>
+      <div class="pattern-toggle">
+        <button class="btn btn-sm ${active ? 'active' : ''}" onclick="togglePattern('${p.id}', this)">
+          ${active ? 'Observed' : 'Mark as observed'}
+        </button>
+        <span class="tag" style="background:var(--surface);color:var(--text-dim)">${p.category}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePattern(id, btn) {
+  state.climaticPatterns[id] = !state.climaticPatterns[id];
+  renderStep5();
+}
+
+// Step 6: Map Visualization
+function renderStep6() {
+  requestAnimationFrame(() => drawMap());
+}
+
+// ============================
+// MAP DRAWING
+// ============================
+function drawMap() {
+  const canvas = document.getElementById('wardleyCanvas');
+  if (!canvas) return;
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const W = container.clientWidth;
+  const H = 600;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Margins
+  const ml = 80, mr = 40, mt = 60, mb = 60;
+  const gw = W - ml - mr;
+  const gh = H - mt - mb;
+
+  // Background
+  ctx.fillStyle = '#13151e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#e4e6f0';
+  ctx.font = 'bold 16px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(state.title || 'Wardley Map', W / 2, 28);
+
+  // Evolution axis zones
+  const zones = [
+    { label: 'Genesis', color: 'rgba(192,132,252,0.06)', x: 0 },
+    { label: 'Custom Built', color: 'rgba(96,165,250,0.06)', x: 0.25 },
+    { label: 'Product (+rental)', color: 'rgba(52,211,153,0.06)', x: 0.5 },
+    { label: 'Commodity (+utility)', color: 'rgba(251,191,36,0.06)', x: 0.75 },
+  ];
+
+  zones.forEach((z, i) => {
+    const x = ml + z.x * gw;
+    const w = gw * 0.25;
+    ctx.fillStyle = z.color;
+    ctx.fillRect(x, mt, w, gh);
+    // Zone borders
+    if (i > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, mt);
+      ctx.lineTo(x, mt + gh);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Zone labels
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(z.label, x + w / 2, H - 20);
+  });
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(20, mt + gh / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Visibility (Value Chain)', 0, 0);
+  ctx.restore();
+
+  // X-axis label
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Evolution', W / 2, H - 4);
+
+  // Y-axis markers
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '10px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Visible', ml - 10, mt + 12);
+  ctx.fillText('Invisible', ml - 10, mt + gh);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ml, mt);
+  ctx.lineTo(ml, mt + gh);
+  ctx.lineTo(ml + gw, mt + gh);
+  ctx.stroke();
+
+  if (state.components.length === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '14px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Add components in previous steps to see your map here', W / 2, H / 2);
+    return;
+  }
+
+  // Calculate positions
+  const positions = {};
+  state.components.forEach(c => {
+    const x = ml + c.evolution * gw;
+    const y = mt + (1 - c.visibility) * gh;
+    positions[c.id] = { x, y };
+  });
+
+  // Draw dependency lines
+  ctx.lineWidth = 1.5;
+  state.components.forEach(c => {
+    c.parents.forEach(pid => {
+      const from = positions[c.id];
+      const to = positions[pid];
+      if (from && to) {
+        ctx.strokeStyle = 'rgba(108,140,255,0.25)';
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+      }
+    });
+  });
+
+  // Draw evolution arrows
+  if (state.showMovement) {
+    state.components.forEach(c => {
+      if (c.evolution < 0.95) {
+        const pos = positions[c.id];
+        ctx.strokeStyle = 'rgba(251,191,36,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(pos.x + 14, pos.y);
+        ctx.lineTo(pos.x + 40, pos.y);
+        ctx.stroke();
+        // Arrowhead
+        ctx.fillStyle = 'rgba(251,191,36,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(pos.x + 40, pos.y);
+        ctx.lineTo(pos.x + 34, pos.y - 4);
+        ctx.lineTo(pos.x + 34, pos.y + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.setLineDash([]);
+      }
+    });
+  }
+
+  // Draw inertia barriers
+  if (state.showInertia) {
+    state.components.forEach(c => {
+      // Show inertia for components in the product stage (0.5-0.75)
+      if (c.evolution >= 0.45 && c.evolution <= 0.75) {
+        const pos = positions[c.id];
+        ctx.strokeStyle = 'rgba(248,113,113,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pos.x + 18, pos.y - 12);
+        ctx.lineTo(pos.x + 18, pos.y + 12);
+        ctx.stroke();
+        // Second line
+        ctx.beginPath();
+        ctx.moveTo(pos.x + 22, pos.y - 10);
+        ctx.lineTo(pos.x + 22, pos.y + 10);
+        ctx.stroke();
+      }
+    });
+  }
+
+  // Draw user anchor
+  if (state.users.length > 0) {
+    ctx.fillStyle = 'rgba(108,140,255,0.15)';
+    ctx.strokeStyle = 'rgba(108,140,255,0.4)';
+    ctx.lineWidth = 1;
+    const ux = ml + gw * 0.05;
+    const uy = mt + 10;
+
+    // User icon (simple circle head + body)
+    ctx.beginPath();
+    ctx.arc(ux, uy, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(108,140,255,0.7)';
+    ctx.font = 'bold 11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('User', ux, uy + 26);
+    ctx.fillStyle = 'rgba(108,140,255,0.5)';
+    ctx.font = '9px -apple-system, system-ui, sans-serif';
+    state.users.forEach((u, i) => {
+      ctx.fillText(u, ux, uy + 38 + i * 12);
+    });
+
+    // Lines from user to top-level needs
+    state.components.filter(c => c.isNeed).forEach(c => {
+      const pos = positions[c.id];
+      ctx.strokeStyle = 'rgba(108,140,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(ux, uy + 12);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  // Draw component nodes
+  state.components.forEach(c => {
+    const pos = positions[c.id];
+    const evoColor = c.evolution < 0.25 ? '#c084fc' : c.evolution < 0.5 ? '#60a5fa' : c.evolution < 0.75 ? '#34d399' : '#fbbf24';
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = evoColor;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Label with collision avoidance
+    ctx.fillStyle = '#e4e6f0';
+    ctx.font = '12px -apple-system, system-ui, sans-serif';
+    const labelW = ctx.measureText(c.name).width;
+    // Check if label to the right would go off-screen
+    let lx = pos.x + 12;
+    let ly = pos.y + 4;
+    if (lx + labelW > ml + gw) {
+      ctx.textAlign = 'right';
+      lx = pos.x - 12;
+    } else {
+      ctx.textAlign = 'left';
+    }
+    // Simple vertical nudge if another label is very close
+    for (const other of state.components) {
+      if (other.id === c.id) continue;
+      const op = positions[other.id];
+      if (op && Math.abs(op.x - pos.x) < 60 && Math.abs(op.y - pos.y) < 18) {
+        ly = pos.y - 14; // move label above node
+        break;
+      }
+    }
+    ctx.fillText(c.name, lx, ly);
+  });
+
+  // Make nodes draggable
+  setupDrag(canvas, positions, ml, mr, mt, mb, gw, gh);
+}
+
+function setupDrag(canvas, positions, ml, mr, mt, mb, gw, gh) {
+  canvas.onmousedown = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    for (const c of state.components) {
+      const pos = positions[c.id];
+      if (pos && Math.hypot(mx - pos.x, my - pos.y) < 14) {
+        state.dragging = c.id;
+        break;
+      }
+    }
+  };
+  canvas.onmousemove = function(e) {
+    if (!state.dragging) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const c = state.components.find(x => x.id === state.dragging);
+    if (c) {
+      c.evolution = Math.max(0, Math.min(1, (mx - ml) / gw));
+      c.visibility = Math.max(0.05, Math.min(1, 1 - (my - mt) / (600 - mt - mb)));
+      drawMap();
+    }
+  };
+  canvas.onmouseup = function() {
+    state.dragging = null;
+  };
+  canvas.onmouseleave = function() {
+    state.dragging = null;
+  };
+}
+
+function toggleMapAnnotations() {
+  state.showAnnotations = !state.showAnnotations;
+  drawMap();
+}
+function toggleMapMovement() {
+  state.showMovement = !state.showMovement;
+  drawMap();
+}
+function toggleInertia() {
+  state.showInertia = !state.showInertia;
+  drawMap();
+}
+
+// ============================
+// EXPORT FUNCTIONS
+// ============================
+function downloadMap() {
+  const canvas = document.getElementById('wardleyCanvas');
+  const link = document.createElement('a');
+  link.download = (state.title || 'wardley-map') + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function downloadSVG() {
+  // Generate SVG from current state
+  const W = 900, H = 600;
+  const ml = 80, mr = 40, mt = 60, mb = 60;
+  const gw = W - ml - mr;
+  const gh = H - mt - mb;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  svg += `<rect width="${W}" height="${H}" fill="#13151e"/>`;
+
+  // Title
+  svg += `<text x="${W/2}" y="28" fill="#e4e6f0" font-family="system-ui" font-size="16" font-weight="bold" text-anchor="middle">${escXml(state.title || 'Wardley Map')}</text>`;
+
+  // Evolution zones
+  const zones = ['Genesis', 'Custom Built', 'Product (+rental)', 'Commodity (+utility)'];
+  const zoneColors = ['rgba(192,132,252,0.06)', 'rgba(96,165,250,0.06)', 'rgba(52,211,153,0.06)', 'rgba(251,191,36,0.06)'];
+  zones.forEach((z, i) => {
+    const x = ml + i * 0.25 * gw;
+    svg += `<rect x="${x}" y="${mt}" width="${gw*0.25}" height="${gh}" fill="${zoneColors[i]}"/>`;
+    svg += `<text x="${x + gw*0.125}" y="${H-20}" fill="rgba(255,255,255,0.25)" font-family="system-ui" font-size="11" text-anchor="middle">${z}</text>`;
+    if (i > 0) {
+      svg += `<line x1="${x}" y1="${mt}" x2="${x}" y2="${mt+gh}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4,4"/>`;
+    }
+  });
+
+  // Axes
+  svg += `<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+gh}" stroke="rgba(255,255,255,0.15)"/>`;
+  svg += `<line x1="${ml}" y1="${mt+gh}" x2="${ml+gw}" y2="${mt+gh}" stroke="rgba(255,255,255,0.15)"/>`;
+
+  // Axis labels
+  svg += `<text x="20" y="${mt+gh/2}" fill="rgba(255,255,255,0.3)" font-family="system-ui" font-size="12" text-anchor="middle" transform="rotate(-90,20,${mt+gh/2})">Visibility (Value Chain)</text>`;
+  svg += `<text x="${W/2}" y="${H-4}" fill="rgba(255,255,255,0.3)" font-family="system-ui" font-size="12" text-anchor="middle">Evolution</text>`;
+
+  // Dependency lines
+  state.components.forEach(c => {
+    c.parents.forEach(pid => {
+      const p = state.components.find(x => x.id === pid);
+      if (p) {
+        const x1 = ml + c.evolution * gw;
+        const y1 = mt + (1 - c.visibility) * gh;
+        const x2 = ml + p.evolution * gw;
+        const y2 = mt + (1 - p.visibility) * gh;
+        svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(108,140,255,0.25)" stroke-width="1.5"/>`;
+      }
+    });
+  });
+
+  // Component nodes
+  state.components.forEach(c => {
+    const x = ml + c.evolution * gw;
+    const y = mt + (1 - c.visibility) * gh;
+    const color = c.evolution < 0.25 ? '#c084fc' : c.evolution < 0.5 ? '#60a5fa' : c.evolution < 0.75 ? '#34d399' : '#fbbf24';
+    svg += `<circle cx="${x}" cy="${y}" r="8" fill="${color}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>`;
+    svg += `<text x="${x+12}" y="${y+4}" fill="#e4e6f0" font-family="system-ui" font-size="12">${escXml(c.name)}</text>`;
+  });
+
+  svg += '</svg>';
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const link = document.createElement('a');
+  link.download = (state.title || 'wardley-map') + '.svg';
+  link.href = URL.createObjectURL(blob);
+  link.click();
+}
+
+function escXml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function exportJSON() {
+  saveCurrentStepData();
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.download = (state.title || 'wardley-map') + '.json';
+  link.href = URL.createObjectURL(blob);
+  link.click();
+}
+
+function importJSON() {
+  document.getElementById('fileInput').click();
+}
+
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      Object.assign(state, data);
+      nextId = Math.max(nextId, ...state.components.map(c => parseInt(c.id.replace('c','')) || 0)) + 1;
+      navigateTo(state.currentStep || 0);
+    } catch(err) {
+      alert('Failed to load file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ============================
+// SIDEBAR
+// ============================
+function renderSidebarComponents() {
+  const el = document.getElementById('sidebarComponents');
+  if (state.components.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px;">No components yet</div>';
+    return;
+  }
+  el.innerHTML = state.components.map(c => {
+    const evoLabel = c.evolution < 0.25 ? 'Gen' : c.evolution < 0.5 ? 'Cst' : c.evolution < 0.75 ? 'Prd' : 'Com';
+    const tagClass = c.evolution < 0.25 ? 'tag-genesis' : c.evolution < 0.5 ? 'tag-custom' : c.evolution < 0.75 ? 'tag-product' : 'tag-commodity';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:12px;border-radius:4px;margin-bottom:2px;background:var(--surface2);">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name}</span>
+      <span class="tag ${tagClass}" style="font-size:9px;padding:2px 6px;">${evoLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowRight' || e.key === 'n') nextStep();
+  if (e.key === 'ArrowLeft' || e.key === 'p') prevStep();
+});
+
+// Handle enter key in inputs
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'newUser') addUser();
+  if (e.key === 'Enter' && e.target.id === 'newComponentName') addComponent();
+  if (e.key === 'Enter' && e.target.id?.startsWith('need-')) {
+    const user = e.target.id.replace('need-', '');
+    addNeed(user);
+  }
+});
+
+// Resize handler for map
+window.addEventListener('resize', () => {
+  if (state.currentStep === 6) drawMap();
+});
+
+init();
+</script>
+</body>
+</html>
