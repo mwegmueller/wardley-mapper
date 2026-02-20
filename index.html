@@ -553,6 +553,99 @@
     display: none;
   }
 
+  /* Saved maps list */
+  .saved-maps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .saved-map-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+  }
+  .saved-map-item:hover { border-color: var(--accent); }
+  .saved-map-item .map-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .saved-map-item .map-date {
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .saved-map-item .map-delete {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .saved-map-item .map-delete:hover { color: var(--red); background: rgba(248,113,113,0.15); }
+
+  /* Modal overlay */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 480px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  }
+  .modal h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .modal .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    justify-content: flex-end;
+  }
+
+  /* Auto-save indicator */
+  .autosave-indicator {
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 4px 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .autosave-indicator.show { opacity: 1; }
+
   /* Responsive */
   @media (max-width: 900px) {
     .sidebar { display: none; }
@@ -567,9 +660,12 @@
 <div class="header">
   <h1><span>Wardley</span> Map Builder</h1>
   <div class="progress-bar" id="progressBar"></div>
-  <div style="display:flex;gap:8px;">
-    <button class="btn btn-sm" onclick="exportJSON()" title="Save project">Save</button>
-    <button class="btn btn-sm" onclick="importJSON()" title="Load project">Load</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span class="autosave-indicator" id="autosaveIndicator">Saved</span>
+    <button class="btn btn-sm btn-primary" onclick="saveToLibrary()" title="Save map to library">Save</button>
+    <button class="btn btn-sm" onclick="showLibrary()" title="Open saved maps">My Maps</button>
+    <button class="btn btn-sm" onclick="exportJSON()" title="Export as JSON file">Export</button>
+    <button class="btn btn-sm" onclick="importJSON()" title="Import JSON file">Import</button>
   </div>
 </div>
 
@@ -578,6 +674,11 @@
     <div class="sidebar-section">
       <h3>Steps</h3>
       <ul class="step-nav" id="stepNav"></ul>
+    </div>
+    <div class="sidebar-section">
+      <h3>Saved Maps</h3>
+      <div id="sidebarSavedMaps" class="saved-maps-list"></div>
+      <button class="btn btn-sm" style="width:100%;margin-top:8px;" onclick="newMap()">+ New Map</button>
     </div>
     <div class="sidebar-section">
       <h3>Components</h3>
@@ -763,11 +864,16 @@
         <button class="btn btn-sm btn-primary" onclick="downloadMap()">Export as PNG</button>
         <button class="btn btn-sm" onclick="downloadSVG()">Export as SVG</button>
       </div>
-      <div class="export-options" style="margin-top: 24px;">
+      <div class="export-options" style="margin-top: 24px; grid-template-columns: repeat(4, 1fr);">
+        <div class="export-card" onclick="saveToLibrary()" style="border-color:var(--accent);">
+          <div class="icon">&#x1f4be;</div>
+          <h5>Save to Library</h5>
+          <p>Store in browser for quick access</p>
+        </div>
         <div class="export-card" onclick="exportJSON()">
           <div class="icon">{ }</div>
-          <h5>Save Project</h5>
-          <p>Download as JSON to continue later</p>
+          <h5>Export JSON</h5>
+          <p>Download file to share or back up</p>
         </div>
         <div class="export-card" onclick="downloadMap()">
           <div class="icon">&#x1f4f7;</div>
@@ -791,6 +897,18 @@
 </div>
 
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadFile(event)">
+
+<!-- Library Modal -->
+<div class="modal-overlay hidden" id="libraryModal" onclick="if(event.target===this)closeLibrary()">
+  <div class="modal">
+    <h3>My Saved Maps</h3>
+    <div id="libraryList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-sm" onclick="newMap()">+ New Map</button>
+      <button class="btn btn-sm" onclick="closeLibrary()">Close</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================
@@ -903,6 +1021,7 @@ const climaticPatternsData = [
 function init() {
   renderProgressBar();
   renderStepNav();
+  renderSidebarSavedMaps();
   navigateTo(0);
 }
 
@@ -971,6 +1090,7 @@ function saveCurrentStepData() {
     state.title = document.getElementById('mapTitle')?.value || '';
     state.purpose = document.getElementById('mapPurpose')?.value || '';
   }
+  scheduleAutoSave();
 }
 
 // ============================
@@ -1013,6 +1133,7 @@ function addUser() {
     if (!state.needs[val]) state.needs[val] = [];
     input.value = '';
     renderUsersList();
+    scheduleAutoSave();
   }
 }
 
@@ -1073,6 +1194,7 @@ function addNeed(user) {
       });
     }
     renderStep1();
+    scheduleAutoSave();
   }
 }
 
@@ -1083,6 +1205,7 @@ function removeNeed(user, i) {
   const ci = state.components.findIndex(c => c.name === need && c.isNeed);
   if (ci >= 0) state.components.splice(ci, 1);
   renderStep1();
+  scheduleAutoSave();
 }
 
 // Step 2: Value Chain
@@ -1147,6 +1270,7 @@ function addComponent() {
   document.querySelectorAll('#parentChips .dep-chip').forEach(el => el.classList.remove('selected'));
   renderStep2();
   renderSidebarComponents();
+  scheduleAutoSave();
 }
 
 function removeComponent(id) {
@@ -1157,6 +1281,7 @@ function removeComponent(id) {
   });
   renderStep2();
   renderSidebarComponents();
+  scheduleAutoSave();
 }
 
 // Step 3: Evolution
@@ -1201,11 +1326,13 @@ function updateEvolution(id, val) {
     tag.className = 'tag ' + tagClass;
     tag.textContent = evoLabel;
   }
+  scheduleAutoSave();
 }
 
 function updateVisibility(id, val) {
   const c = state.components.find(x => x.id === id);
   if (c) c.visibility = val / 100;
+  scheduleAutoSave();
 }
 
 // Step 4: Doctrine
@@ -1244,6 +1371,7 @@ function renderDoctrineContent() {
 function setDoctrine(id, rating) {
   state.doctrine[id] = state.doctrine[id] === rating ? 0 : rating;
   renderDoctrineContent();
+  scheduleAutoSave();
 }
 
 // Step 5: Climatic Patterns
@@ -1267,6 +1395,7 @@ function renderStep5() {
 function togglePattern(id, btn) {
   state.climaticPatterns[id] = !state.climaticPatterns[id];
   renderStep5();
+  scheduleAutoSave();
 }
 
 // Step 6: Map Visualization
@@ -1552,9 +1681,11 @@ function setupDrag(canvas, positions, ml, mr, mt, mb, gw, gh) {
     }
   };
   canvas.onmouseup = function() {
+    if (state.dragging) scheduleAutoSave();
     state.dragging = null;
   };
   canvas.onmouseleave = function() {
+    if (state.dragging) scheduleAutoSave();
     state.dragging = null;
   };
 }
@@ -1673,13 +1804,161 @@ function loadFile(event) {
       const data = JSON.parse(e.target.result);
       Object.assign(state, data);
       nextId = Math.max(nextId, ...state.components.map(c => parseInt(c.id.replace('c','')) || 0)) + 1;
+      currentMapId = 'map_' + Date.now();
       navigateTo(state.currentStep || 0);
+      saveToLibrary();
     } catch(err) {
       alert('Failed to load file: ' + err.message);
     }
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+// ============================
+// LOCAL STORAGE (Map Library)
+// ============================
+const STORAGE_KEY = 'wardley-mapper-library';
+let currentMapId = null;
+let autosaveTimer = null;
+
+function getLibrary() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { return {}; }
+}
+
+function saveLibrary(lib) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(lib));
+}
+
+function saveToLibrary() {
+  saveCurrentStepData();
+  const lib = getLibrary();
+  if (!currentMapId) currentMapId = 'map_' + Date.now();
+  lib[currentMapId] = {
+    title: state.title || 'Untitled Map',
+    savedAt: new Date().toISOString(),
+    state: JSON.parse(JSON.stringify(state))
+  };
+  saveLibrary(lib);
+  renderSidebarSavedMaps();
+  showAutosaveIndicator('Saved');
+}
+
+function autoSave() {
+  if (!currentMapId) return;
+  saveToLibrary();
+  showAutosaveIndicator('Auto-saved');
+}
+
+function scheduleAutoSave() {
+  clearTimeout(autosaveTimer);
+  if (currentMapId) {
+    autosaveTimer = setTimeout(autoSave, 3000);
+  }
+}
+
+function showAutosaveIndicator(text) {
+  const el = document.getElementById('autosaveIndicator');
+  el.textContent = text;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function loadFromLibrary(mapId) {
+  const lib = getLibrary();
+  const entry = lib[mapId];
+  if (!entry) return;
+  currentMapId = mapId;
+  Object.assign(state, entry.state);
+  nextId = Math.max(nextId, ...state.components.map(c => parseInt(c.id.replace('c','')) || 0)) + 1;
+  navigateTo(state.currentStep || 0);
+  renderSidebarSavedMaps();
+  closeLibrary();
+}
+
+function deleteFromLibrary(mapId, event) {
+  if (event) event.stopPropagation();
+  if (!confirm('Delete this saved map?')) return;
+  const lib = getLibrary();
+  delete lib[mapId];
+  saveLibrary(lib);
+  if (currentMapId === mapId) currentMapId = null;
+  renderSidebarSavedMaps();
+  renderLibraryList();
+}
+
+function newMap() {
+  if (currentMapId && (state.title || state.components.length > 0)) {
+    saveToLibrary();
+  }
+  currentMapId = null;
+  state.currentStep = 0;
+  state.title = '';
+  state.purpose = '';
+  state.users = [];
+  state.needs = {};
+  state.components = [];
+  state.doctrine = {};
+  state.climaticPatterns = {};
+  state.showMovement = false;
+  state.showInertia = false;
+  state.showAnnotations = true;
+  state.dragging = null;
+  nextId = 1;
+  navigateTo(0);
+  renderSidebarSavedMaps();
+  closeLibrary();
+}
+
+function showLibrary() {
+  document.getElementById('libraryModal').classList.remove('hidden');
+  renderLibraryList();
+}
+
+function closeLibrary() {
+  document.getElementById('libraryModal').classList.add('hidden');
+}
+
+function renderLibraryList() {
+  const lib = getLibrary();
+  const el = document.getElementById('libraryList');
+  const entries = Object.entries(lib).sort((a, b) => new Date(b[1].savedAt) - new Date(a[1].savedAt));
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:13px;">No saved maps yet. Click "Save" to save your current map.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(([id, entry]) => {
+    const date = new Date(entry.savedAt);
+    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const compCount = entry.state.components ? entry.state.components.length : 0;
+    const isCurrent = id === currentMapId;
+    return `<div class="saved-map-item" style="${isCurrent ? 'border-color:var(--accent);background:var(--accent-dim);' : ''}" onclick="loadFromLibrary('${id}')">
+      <span class="map-name">${escXml(entry.title || 'Untitled')}</span>
+      <span style="font-size:10px;color:var(--text-dim)">${compCount} components</span>
+      <span class="map-date">${dateStr}</span>
+      <button class="map-delete" onclick="deleteFromLibrary('${id}', event)" title="Delete">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function renderSidebarSavedMaps() {
+  const el = document.getElementById('sidebarSavedMaps');
+  if (!el) return;
+  const lib = getLibrary();
+  const entries = Object.entries(lib).sort((a, b) => new Date(b[1].savedAt) - new Date(a[1].savedAt));
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px;">No saved maps</div>';
+    return;
+  }
+  el.innerHTML = entries.slice(0, 10).map(([id, entry]) => {
+    const isCurrent = id === currentMapId;
+    return `<div class="saved-map-item" style="${isCurrent ? 'border-color:var(--accent);' : ''}" onclick="loadFromLibrary('${id}')">
+      <span class="map-name">${escXml(entry.title || 'Untitled')}</span>
+      <button class="map-delete" onclick="deleteFromLibrary('${id}', event)" title="Delete">&times;</button>
+    </div>`;
+  }).join('');
 }
 
 // ============================
